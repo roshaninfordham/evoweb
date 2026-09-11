@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #edeeea;
+  --paper-dim: #e2e2da;
+  --stone: #c9c4b6;
+  --ink: #1c2b2a;
+  --ink-dim: #2e4443;
+  --ink-dimmer: #3a5453;
+  --mist: #9fb0ae;
+  --mist-dim: #6f827f;
+  --flare: #4c5fef;
+  --flare-soft: #dfe2fc;
+  --text-on-paper: #22231f;
+  --text-on-paper-dim: #6b6a5f;
+  --text-on-ink: #e7ece9;
+  --text-on-ink-dim: #9fb0ae;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-paper-dim: var(--paper-dim);
+  --color-stone: var(--stone);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-ink-dimmer: var(--ink-dimmer);
+  --color-mist: var(--mist);
+  --color-mist-dim: var(--mist-dim);
+  --color-flare: var(--flare);
+  --color-flare-soft: var(--flare-soft);
+  --color-text: var(--text-on-paper);
+  --color-text-dim: var(--text-on-paper-dim);
+  --color-text-inverted: var(--text-on-ink);
+  --color-text-inverted-dim: var(--text-on-ink-dim);
+
+  --font-display: var(--font-display);
+  --font-system: var(--font-system);
+  --font-console: var(--font-console);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--stone);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--text-on-paper);
+  font-family: var(--font-system), system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes flare-sweep {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+.animate-flare {
+  animation: flare-sweep 1.4s ease-out;
+  transform-origin: left;
 }
