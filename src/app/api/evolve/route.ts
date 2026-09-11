@@ -94,6 +94,7 @@ async function runPipeline(
   send: (event: string, data: unknown) => void,
   close: () => void
 ) {
+  let currentVersion: number | null = null;
   try {
     const sql = await getDb();
 
@@ -122,6 +123,7 @@ async function runPipeline(
       SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM evolutions WHERE slot_id = ${slot.id}
     `;
     const version = Number(versionRow[0].next_version);
+    currentVersion = version;
     await sql`INSERT INTO evolutions (slot_id, version, status) VALUES (${slot.id}, ${version}, 'planning')`;
 
     const budgetContext = slot.id === "budget-match" ? await getBudgetContext() : null;
@@ -195,7 +197,18 @@ async function runPipeline(
 
     await runSoftwareFactoryStage(slot, version, plan, code, verification.output, send);
   } catch (err) {
-    send("error", { message: err instanceof Error ? err.message : String(err) });
+    const message = err instanceof Error ? err.message : String(err);
+    send("error", { message });
+    if (currentVersion !== null) {
+      // Otherwise this row stays stuck in 'planning'/'building' forever, which
+      // permanently blocks retries via the in-progress guard above.
+      await getDb()
+        .then(
+          (sql) =>
+            sql`UPDATE evolutions SET status = 'failed', error = ${message} WHERE slot_id = ${slot.id} AND version = ${currentVersion}`
+        )
+        .catch(() => {});
+    }
   } finally {
     close();
   }
