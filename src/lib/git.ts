@@ -37,13 +37,27 @@ export async function openEvolutionPR(params: {
   code: string;
 }): Promise<{ branch: string; prUrl: string; filePath: string }> {
   const { slotId, version, title, reasoning, code } = params;
-  const branch = `evo/${slotId}-v${version}`;
-  const relativePath = join("src/components/slots/generated", `${pascalCase(slotId)}.v${version}.tsx`);
-  const worktreeDir = join(tmpdir(), `evoweb-worktree-${slotId}-v${version}-${Date.now()}`);
+  // "Reset demo" wipes the DB's evolution/version history but not git history —
+  // without a run-unique suffix, a version number can collide with a file an
+  // earlier (pre-reset) run already merged under the same slot+version, which
+  // is an unresolvable add/add conflict, not something a retry fixes.
+  const runId = Date.now().toString(36);
+  const branch = `evo/${slotId}-v${version}-${runId}`;
+  const relativePath = join(
+    "src/components/slots/generated",
+    `${pascalCase(slotId)}.v${version}.${runId}.tsx`
+  );
+  const worktreeDir = join(tmpdir(), `evoweb-worktree-${slotId}-v${version}-${runId}`);
 
   const baseBranch = await gitIn(REPO_ROOT, ["rev-parse", "--abbrev-ref", "HEAD"]);
 
-  await gitIn(REPO_ROOT, ["worktree", "add", "-b", branch, worktreeDir, baseBranch]);
+  // Base the new branch on the true current tip of origin/<baseBranch>, not
+  // whatever the local checkout happens to point at — the local repo can be
+  // stale relative to GitHub (e.g. this same process merged a previous PR, or
+  // someone pushed other commits), and a branch cut from a stale base can
+  // genuinely conflict with the real main by the time it tries to merge.
+  await gitIn(REPO_ROOT, ["fetch", "origin", baseBranch]);
+  await gitIn(REPO_ROOT, ["worktree", "add", "-b", branch, worktreeDir, `origin/${baseBranch}`]);
   try {
     const filePath = join(worktreeDir, relativePath);
     await mkdir(dirname(filePath), { recursive: true });
