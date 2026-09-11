@@ -11,7 +11,7 @@ from config import (
     builder_llm,
     planner_llm,
 )
-from one_tools import ONE_TOOLS
+from one_tools import ONE_TOOLS, execute_one_action
 from schemas import (
     BuildRequest,
     BuildResponse,
@@ -163,7 +163,20 @@ def _build_harness(code: str, props_contract: str) -> str:
     )
 
 
+_EXIT_CODE_RE = re.compile(r"EXIT_CODE=(-?\d+)\s*$")
+
+
 def run_verify(req: VerifyRequest) -> VerifyResponse:
+    """
+    Runs the real `tsc --noEmit` check in the pre-provisioned Daytona sandbox via
+    One's execute_one_action tool. This step is fully deterministic (exact action,
+    exact params, exact parsing) — calling it through an LLM agent added an
+    unreliable extra round trip (an agent "deciding" to call a tool it has no real
+    choice about, then a second pass to coerce free text into structured JSON) that
+    measured anywhere from ~2s to several *minutes* depending on provider queueing,
+    and once outright killed a live SSE stream. Direct, deterministic call: same
+    real One -> Daytona execution, none of that variance.
+    """
     harness = _build_harness(req.code, req.propsContract)
     encoded = base64.b64encode(harness.encode()).decode()
     tsconfig = json.dumps(
@@ -176,41 +189,28 @@ def run_verify(req: VerifyRequest) -> VerifyResponse:
     data_json = json.dumps({"command": shell_command, "timeout": 30})
     path_vars_json = json.dumps({"sandboxId": DAYTONA_SANDBOX_ID})
 
-    verifier = Agent(
-        role="Sandbox Verifier",
-        goal="Actually run a real typecheck of generated code inside a Daytona sandbox and report the true result.",
-        backstory=(
-            "You have access to One's execute_one_action tool, which reaches Daytona (platform slug: "
-            "'daytona') for running commands in a real, already-running sandbox. Never fabricate a "
-            "result — only report what the tool actually returns."
-        ),
-        tools=ONE_TOOLS,
-        llm=builder_llm(),
-        verbose=True,
+    raw = execute_one_action.func(
+        platform="daytona",
+        action_id=DAYTONA_EXEC_ACTION_ID,
+        connection_key=DAYTONA_CONNECTION_KEY,
+        path_vars_json=path_vars_json,
+        data_json=data_json,
     )
-    task = Task(
-        description=(
-            "Call execute_one_action with EXACTLY these arguments — do not modify them, do not look up "
-            "actions, do not call any other tool first:\n"
-            f'platform="daytona"\n'
-            f'action_id="{DAYTONA_EXEC_ACTION_ID}"\n'
-            f'connection_key="{DAYTONA_CONNECTION_KEY}"\n'
-            f"path_vars_json='{path_vars_json}'\n"
-            f"data_json='{data_json}'\n\n"
-            "If that call fails because the connection key is stale, call list_one_connections to get "
-            "the current daytona connection key and retry once with that key instead.\n\n"
-            "The tool's response contains a `result` string with the raw compiler output, ending with "
-            "a line like `EXIT_CODE=0` or `EXIT_CODE=<nonzero>`. Set ok=true only if EXIT_CODE=0. Set "
-            "output to the compiler output text (everything before the EXIT_CODE line), truncated to "
-            "4000 characters. Never claim a passing check you didn't actually see EXIT_CODE=0 for."
-        ),
-        expected_output="A JSON object with ok (boolean) and output (string, the compiler output).",
-        agent=verifier,
-        output_pydantic=VerifyResponse,
-    )
-    crew = Crew(agents=[verifier], tasks=[task], process=Process.sequential, verbose=True)
-    result = crew.kickoff()
-    return result.pydantic if result.pydantic else VerifyResponse(**result.json_dict)
+
+    try:
+        parsed = json.loads(raw)
+        result_text = parsed.get("response", {}).get("result", raw)
+    except (json.JSONDecodeError, AttributeError):
+        result_text = raw
+
+    lines = result_text.rstrip().splitlines()
+    match = _EXIT_CODE_RE.match(lines[-1]) if lines else None
+    if not match:
+        return VerifyResponse(ok=False, output=f"Could not parse sandbox output:\n{result_text[:4000]}")
+
+    ok = match.group(1) == "0"
+    output = "\n".join(lines[:-1])[:4000]
+    return VerifyResponse(ok=ok, output=output)
 
 
 def run_review(req: ReviewRequest) -> ReviewResponse:

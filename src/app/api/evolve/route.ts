@@ -65,7 +65,7 @@ function buildPropsSnapshot(
   };
 }
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",

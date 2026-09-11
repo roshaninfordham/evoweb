@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { products, type Product } from "@/data/products";
 import type { SlotId } from "@/lib/slots";
 import type { HistoryEntry, LogEntry, SlotState } from "@/lib/types";
+import type { SourceKey } from "@/lib/sources";
 import { trackEvent } from "@/lib/track";
 import { Nav } from "./Nav";
 import { Hero } from "./Hero";
@@ -52,10 +53,22 @@ export function Storefront() {
   }, []);
 
   const appendLog = useCallback(
-    (label: string, state: LogEntry["state"], extra?: { agent?: string; href?: string }) => {
+    (
+      label: string,
+      state: LogEntry["state"],
+      extra?: { agent?: string; href?: string; sources?: SourceKey[] }
+    ) => {
       setLog((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), ts: stamp(), label, state, agent: extra?.agent, href: extra?.href },
+        {
+          id: crypto.randomUUID(),
+          ts: stamp(),
+          label,
+          state,
+          agent: extra?.agent,
+          href: extra?.href,
+          sources: extra?.sources,
+        },
       ]);
     },
     []
@@ -76,7 +89,11 @@ export function Storefront() {
       );
       source.addEventListener("plan_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("Planning the change", "running", { agent: data.agents?.join(" -> ") });
+        const researching = data.agents?.includes("Market Researcher");
+        appendLog("Planning the change", "running", {
+          agent: data.agents?.join(" -> "),
+          sources: researching ? ["crewai", "you"] : ["crewai"],
+        });
       });
       source.addEventListener("plan_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
@@ -86,15 +103,22 @@ export function Storefront() {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(data.attempt > 1 ? "Rewriting after a failed check" : "Writing component", "running", {
           agent: data.agent,
+          sources: ["crewai"],
         });
       });
       source.addEventListener("build_done", () => appendLog("Component written", "done"));
       source.addEventListener("verify_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("Verifying in a real Daytona sandbox", "running", { agent: data.agent });
+        appendLog("Verifying in a real Daytona sandbox", "running", {
+          agent: data.agent,
+          sources: ["daytona"],
+        });
       });
       source.addEventListener("verify_done", () => appendLog("Verified", "done"));
-      source.addEventListener("verify_failed", () => appendLog("Verification failed", "failed"));
+      source.addEventListener("verify_failed", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog(`Verification failed: ${String(data.output).slice(0, 120)}`, "failed");
+      });
       source.addEventListener("deployed", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`Shipped: ${data.title}`, "done");
@@ -117,15 +141,21 @@ export function Storefront() {
       });
       source.addEventListener("pr_open_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("Opening a real pull request on GitHub", "running", { agent: data.agent });
+        appendLog("Opening a real pull request on GitHub", "running", {
+          agent: data.agent,
+          sources: ["github"],
+        });
       });
       source.addEventListener("pr_open_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog(`PR opened: ${data.branch}`, "done", { href: data.prUrl });
+        appendLog(`PR opened: ${data.branch}`, "done", { href: data.prUrl, sources: ["github"] });
       });
       source.addEventListener("review_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("A second agent is reviewing the PR", "running", { agent: data.agent });
+        appendLog("A second agent is reviewing the PR", "running", {
+          agent: data.agent,
+          sources: ["crewai"],
+        });
       });
       source.addEventListener("review_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
@@ -133,12 +163,12 @@ export function Storefront() {
       });
       source.addEventListener("pr_merged", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("PR merged into main", "done", { href: data.prUrl });
+        appendLog("PR merged into main", "done", { href: data.prUrl, sources: ["github"] });
         finish();
       });
       source.addEventListener("pr_left_open", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("PR left open for a human to look at", "done", { href: data.prUrl });
+        appendLog("PR left open for a human to look at", "done", { href: data.prUrl, sources: ["github"] });
         finish();
       });
       source.addEventListener("pr_failed", (e) => {
@@ -146,16 +176,27 @@ export function Storefront() {
         appendLog(`PR step failed: ${data.message}`, "failed");
         finish();
       });
-      source.addEventListener("skip", () => {
-        appendLog("No evolution needed yet", "done");
+      source.addEventListener("skip", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog(data?.message ?? "No evolution needed yet", "done");
         finish();
       });
-      source.addEventListener("failed", () => {
-        appendLog("Build failed verification twice — aborted", "failed");
+      source.addEventListener("failed", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog(`Build failed verification twice — aborted: ${String(data.output).slice(0, 120)}`, "failed");
         finish();
       });
-      source.addEventListener("error", () => {
-        appendLog("Engine connection error", "failed");
+      source.addEventListener("error", (e) => {
+        const raw = (e as MessageEvent).data;
+        let message = "Engine connection error";
+        if (raw) {
+          try {
+            message = JSON.parse(raw).message ?? message;
+          } catch {
+            // native connection-level error events carry no data — keep the default message
+          }
+        }
+        appendLog(message, "failed");
         finish();
       });
     },

@@ -1,4 +1,5 @@
 import type { HistoryEntry, LogEntry } from "@/lib/types";
+import { SOURCES, type SourceKey } from "@/lib/sources";
 
 const STATE_MARK: Record<LogEntry["state"], string> = {
   running: "○",
@@ -6,12 +7,39 @@ const STATE_MARK: Record<LogEntry["state"], string> = {
   failed: "×",
 };
 
-const LIVE_DASHBOARDS = [
-  { label: "GitHub repo", href: "https://github.com/roshaninfordham/evoweb" },
-  { label: "One", href: "https://app.withone.ai/" },
-  { label: "Daytona", href: "https://app.daytona.io/dashboard/sandboxes" },
-  { label: "CrewAI", href: "https://app.crewai.com/" },
-];
+const LIVE_DASHBOARDS: SourceKey[] = ["github", "one", "daytona", "crewai"];
+
+function SourceChip({ source }: { source: SourceKey }) {
+  const { label, href, color } = SOURCES[source];
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors hover:brightness-125"
+      style={{ borderColor: `${color}55`, color }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {label}
+    </a>
+  );
+}
+
+function StateMark({ state }: { state: LogEntry["state"] }) {
+  if (state === "running") {
+    return (
+      <span className="relative flex h-2.5 w-2.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-flare opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-flare" />
+      </span>
+    );
+  }
+  return (
+    <span className={state === "failed" ? "text-flare shrink-0" : "text-text-inverted shrink-0"}>
+      {STATE_MARK[state]}
+    </span>
+  );
+}
 
 export function EnginePanel({
   version,
@@ -48,22 +76,14 @@ export function EnginePanel({
             no evolutions running
           </p>
         ) : (
-          <ul className="flex flex-col gap-2 font-console text-sm">
+          <ul className="flex flex-col gap-3 font-console text-sm">
             {log.map((entry) => (
               <li key={entry.id} className="flex gap-3 text-text-inverted">
                 <span className="text-text-inverted-dim shrink-0">{entry.ts}</span>
-                <span
-                  className={
-                    entry.state === "failed"
-                      ? "text-flare shrink-0"
-                      : entry.state === "running"
-                        ? "text-text-inverted-dim shrink-0"
-                        : "text-text-inverted shrink-0"
-                  }
-                >
-                  {STATE_MARK[entry.state]}
+                <span className="pt-0.5">
+                  <StateMark state={entry.state} />
                 </span>
-                <span className="flex flex-col">
+                <span className="flex flex-col gap-1">
                   {entry.href ? (
                     <a
                       href={entry.href}
@@ -78,6 +98,13 @@ export function EnginePanel({
                   )}
                   {entry.agent && (
                     <span className="text-xs text-text-inverted-dim">{entry.agent}</span>
+                  )}
+                  {entry.sources && entry.sources.length > 0 && (
+                    <span className="flex flex-wrap gap-1.5 mt-0.5">
+                      {entry.sources.map((s) => (
+                        <SourceChip key={s} source={s} />
+                      ))}
+                    </span>
                   )}
                 </span>
               </li>
@@ -103,17 +130,9 @@ export function EnginePanel({
         </div>
       )}
 
-      <div className="px-6 py-4 border-t border-ink-dimmer flex flex-wrap gap-x-4 gap-y-1">
-        {LIVE_DASHBOARDS.map((d) => (
-          <a
-            key={d.label}
-            href={d.href}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-text-inverted-dim underline underline-offset-2 hover:text-flare"
-          >
-            {d.label}
-          </a>
+      <div className="px-6 py-4 border-t border-ink-dimmer flex flex-wrap gap-1.5">
+        {LIVE_DASHBOARDS.map((s) => (
+          <SourceChip key={s} source={s} />
         ))}
       </div>
     </aside>
