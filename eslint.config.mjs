@@ -21,6 +21,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate Python service, not part of this TS project.
+    "crew/**",
   ]),
 ]);
 

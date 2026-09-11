@@ -15,4 +15,4 @@ export type HistoryEntry = {
   createdAt: string;
 };
 
-export type SlotState = { version: number; code: string } | null;
+export type SlotState = { version: number; code: string; propsSnapshot: Record<string, unknown> | null } | null;

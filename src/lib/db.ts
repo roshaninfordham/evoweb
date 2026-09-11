@@ -30,9 +30,11 @@ async function ensureSchema(sql: NeonQueryFunction<false, false>) {
     CREATE TABLE IF NOT EXISTS components (
       slot_id TEXT PRIMARY KEY,
       active_version INT NOT NULL DEFAULT 0,
+      props_snapshot JSONB,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
+  await sql`ALTER TABLE components ADD COLUMN IF NOT EXISTS props_snapshot JSONB`;
 }
 
 export async function getDb() {

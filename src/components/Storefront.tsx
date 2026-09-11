@@ -33,6 +33,7 @@ export function Storefront() {
 
   const [slots, setSlots] = useState<Record<SlotId, SlotState>>({
     "price-filter": null,
+    "budget-match": null,
     "compare-products": null,
   });
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -83,7 +84,10 @@ export function Storefront() {
       source.addEventListener("deployed", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`Shipped: ${data.title}`, "done");
-        setSlots((prev) => ({ ...prev, [data.slotId]: { version: data.version, code: data.code } }));
+        setSlots((prev) => ({
+          ...prev,
+          [data.slotId]: { version: data.version, code: data.code, propsSnapshot: data.propsSnapshot ?? null },
+        }));
         setHistory((prev) => [
           ...prev,
           {
@@ -209,6 +213,11 @@ export function Storefront() {
             )
           }
         />
+        {slots["budget-match"]?.propsSnapshot && (
+          <div className="pb-10">
+            <DynamicSlot code={slots["budget-match"].code} slotProps={slots["budget-match"].propsSnapshot} />
+          </div>
+        )}
         {slots["compare-products"] && comparedProducts.length >= 2 && (
           <div className="pb-10">
             <DynamicSlot

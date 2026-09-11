@@ -1,10 +1,27 @@
 import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import { SLOTS, type SlotId, type SlotSpec } from "@/lib/slots";
-import { getEvidenceForSlot } from "@/lib/triggers";
-import { planEvolution, buildComponent } from "@/lib/ai";
+import { getBudgetContext, getEvidenceForSlot } from "@/lib/triggers";
+import { planEvolution, buildComponent, type Plan } from "@/lib/ai";
 import { verifyComponent } from "@/lib/sandbox";
 import { createSSEStream } from "@/lib/sse";
+import type { BudgetOffer } from "@/lib/pricing";
+
+function buildPropsSnapshot(
+  slotId: SlotId,
+  budgetContext: { budget: number; offer: BudgetOffer | null } | null,
+  plan: Plan
+): Record<string, unknown> | null {
+  if (slotId !== "budget-match" || !budgetContext) return null;
+  return {
+    budget: budgetContext.budget,
+    internalOffer: budgetContext.offer,
+    externalFind:
+      plan.externalFindName && plan.externalFindPrice != null && plan.externalFindUrl
+        ? { name: plan.externalFindName, price: plan.externalFindPrice, url: plan.externalFindUrl }
+        : null,
+  };
+}
 
 export const maxDuration = 120;
 
@@ -57,8 +74,11 @@ async function runPipeline(
     const version = Number(versionRow[0].next_version);
     await sql`INSERT INTO evolutions (slot_id, version, status) VALUES (${slot.id}, ${version}, 'planning')`;
 
+    const budgetContext = slot.id === "budget-match" ? await getBudgetContext() : null;
+    const needsResearch = slot.id === "budget-match" ? budgetContext?.offer == null : slot.needsResearch;
+
     send("plan_start", {});
-    const plan = await planEvolution(slot, evidence);
+    const plan = await planEvolution(slot, evidence, needsResearch);
     send("plan_done", plan);
 
     if (!plan.shouldBuild) {
@@ -102,13 +122,24 @@ async function runPipeline(
       return;
     }
 
+    const propsSnapshot = buildPropsSnapshot(slot.id, budgetContext, plan);
+
     await sql`UPDATE evolutions SET status = 'deployed', code = ${code} WHERE slot_id = ${slot.id} AND version = ${version}`;
     await sql`
-      INSERT INTO components (slot_id, active_version) VALUES (${slot.id}, ${version})
-      ON CONFLICT (slot_id) DO UPDATE SET active_version = ${version}, updated_at = now()
+      INSERT INTO components (slot_id, active_version, props_snapshot)
+      VALUES (${slot.id}, ${version}, ${propsSnapshot ? JSON.stringify(propsSnapshot) : null})
+      ON CONFLICT (slot_id) DO UPDATE SET
+        active_version = ${version}, props_snapshot = ${propsSnapshot ? JSON.stringify(propsSnapshot) : null}, updated_at = now()
     `;
 
-    send("deployed", { slotId: slot.id, version, code, title: plan.title, reasoning: plan.reasoning });
+    send("deployed", {
+      slotId: slot.id,
+      version,
+      code,
+      title: plan.title,
+      reasoning: plan.reasoning,
+      propsSnapshot,
+    });
   } catch (err) {
     send("error", { message: err instanceof Error ? err.message : String(err) });
   } finally {

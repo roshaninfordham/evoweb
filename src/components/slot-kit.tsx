@@ -52,6 +52,19 @@ export function SlotBadge({ children }: { children: ReactNode }) {
   );
 }
 
+export function SlotLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-sm underline underline-offset-4 text-flare hover:text-ink"
+    >
+      {children}
+    </a>
+  );
+}
+
 export function SlotRangeSlider({
   min,
   max,
@@ -131,6 +144,7 @@ export const SLOT_KIT = {
   SlotRow,
   SlotButton,
   SlotBadge,
+  SlotLink,
   SlotRangeSlider,
   SlotTable,
 };

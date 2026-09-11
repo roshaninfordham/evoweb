@@ -1,6 +1,4 @@
-import { Sandbox } from "@vercel/sandbox";
-
-const SANDBOX_NAME = "evoweb-verify";
+const CREW_URL = process.env.CREW_SERVICE_URL ?? "http://localhost:8000";
 
 const BANNED_PATTERNS: RegExp[] = [
   /className\s*=/,
@@ -27,65 +25,6 @@ export function staticSafetyCheck(code: string): string | null {
   return null;
 }
 
-let sandboxPromise: Promise<Sandbox> | null = null;
-
-async function getSandbox(): Promise<Sandbox> {
-  if (!sandboxPromise) {
-    sandboxPromise = Sandbox.getOrCreate({
-      name: SANDBOX_NAME,
-      runtime: "node24",
-      timeout: 10 * 60 * 1000,
-      persistent: true,
-      onCreate: async (sbx) => {
-        await sbx.writeFiles([
-          {
-            path: "package.json",
-            content: JSON.stringify({ name: "evoweb-verify", private: true }, null, 2),
-          },
-          {
-            path: "tsconfig.json",
-            content: JSON.stringify(
-              {
-                compilerOptions: {
-                  target: "ES2020",
-                  lib: ["ES2020", "DOM"],
-                  jsx: "react",
-                  strict: true,
-                  noEmit: true,
-                  skipLibCheck: true,
-                  moduleResolution: "bundler",
-                  esModuleInterop: true,
-                },
-                include: ["*.tsx"],
-              },
-              null,
-              2
-            ),
-          },
-        ]);
-        const install = await sbx.runCommand("npm", [
-          "install",
-          "--no-audit",
-          "--no-fund",
-          "typescript@5",
-          "react@19",
-          "@types/react@19",
-        ]);
-        if (install.exitCode !== 0) {
-          throw new Error(`sandbox setup failed: ${await install.stderr()}`);
-        }
-      },
-    });
-  }
-  return sandboxPromise;
-}
-
-function contractTypeName(contract: string): string {
-  const match = contract.match(/type\s+(\w+)\s*=/);
-  if (!match) throw new Error("propsContract must declare `type <Name> = ...`");
-  return match[1];
-}
-
 export async function verifyComponent(
   code: string,
   propsContract: string
@@ -93,12 +32,13 @@ export async function verifyComponent(
   const safetyError = staticSafetyCheck(code);
   if (safetyError) return { ok: false, output: safetyError };
 
-  const typeName = contractTypeName(propsContract);
-  const harness = `${propsContract}\n\n${code}\n\nconst __check: (props: ${typeName}) => unknown = Component;\nvoid __check;\n`;
-
-  const sbx = await getSandbox();
-  await sbx.writeFiles([{ path: "component.tsx", content: harness }]);
-  const result = await sbx.runCommand("npx", ["tsc", "--noEmit"]);
-  const output = await result.output("both");
-  return { ok: result.exitCode === 0, output: output.slice(0, 4000) };
+  const res = await fetch(`${CREW_URL}/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, propsContract }),
+  });
+  if (!res.ok) {
+    return { ok: false, output: `verifier service failed (${res.status}): ${await res.text()}` };
+  }
+  return res.json() as Promise<{ ok: boolean; output: string }>;
 }

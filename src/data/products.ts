@@ -8,6 +8,8 @@ export type Product = {
   name: string;
   category: "Sneakers" | "Outerwear" | "Accessories";
   price: number;
+  /** Internal cost floor — a markdown is only ever safe at or above this. Illustrative, not real COGS data. */
+  cost: number;
   blurb: string;
   weightGrams: number;
   rating: number;
@@ -20,6 +22,7 @@ export const products: Product[] = [
     name: "Drift Runner",
     category: "Sneakers",
     price: 128,
+    cost: 74,
     blurb: "Everyday trainer, breathable knit upper.",
     weightGrams: 260,
     rating: 4.6,
@@ -30,6 +33,7 @@ export const products: Product[] = [
     name: "Field Low",
     category: "Sneakers",
     price: 96,
+    cost: 58,
     blurb: "Low-profile court shoe, reinforced toe.",
     weightGrams: 285,
     rating: 4.3,
@@ -40,6 +44,7 @@ export const products: Product[] = [
     name: "Night Trail",
     category: "Sneakers",
     price: 154,
+    cost: 92,
     blurb: "Trail runner with lugged sole for wet ground.",
     weightGrams: 310,
     rating: 4.7,
@@ -50,6 +55,7 @@ export const products: Product[] = [
     name: "Paper High",
     category: "Sneakers",
     price: 118,
+    cost: 65,
     blurb: "Minimal high-top, canvas construction.",
     weightGrams: 340,
     rating: 4.1,
@@ -60,6 +66,7 @@ export const products: Product[] = [
     name: "Shelter Parka",
     category: "Outerwear",
     price: 210,
+    cost: 128,
     blurb: "Insulated shell, packable hood.",
     weightGrams: 920,
     rating: 4.8,
@@ -70,6 +77,7 @@ export const products: Product[] = [
     name: "Quarter Vest",
     category: "Outerwear",
     price: 88,
+    cost: 49,
     blurb: "Lightweight layer for shoulder-season mornings.",
     weightGrams: 340,
     rating: 4.2,
@@ -80,6 +88,7 @@ export const products: Product[] = [
     name: "Field Cap",
     category: "Accessories",
     price: 32,
+    cost: 17,
     blurb: "Six-panel cap, brushed cotton.",
     weightGrams: 90,
     rating: 4.4,
@@ -90,6 +99,7 @@ export const products: Product[] = [
     name: "Day Crossbody",
     category: "Accessories",
     price: 64,
+    cost: 36,
     blurb: "Compact bag, one adjustable strap.",
     weightGrams: 180,
     rating: 4.5,
