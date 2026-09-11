@@ -3,7 +3,7 @@ import os
 from crewai import LLM
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL = "deepseek-ai/deepseek-v4-pro-0813"
+NVIDIA_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
 
 # A persistent Daytona sandbox, pre-provisioned with TypeScript, reused across
 # every verification. Created once via the One CLI directly (see project notes) —
