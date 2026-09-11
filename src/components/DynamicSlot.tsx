@@ -10,7 +10,11 @@ const KIT_VALUES = Object.values(SlotKit);
 
 function compile(code: string): React.ComponentType<Record<string, unknown>> | null {
   try {
-    const { code: js } = transform(code, { transforms: ["jsx", "typescript"] });
+    const { code: js } = transform(code, {
+      transforms: ["jsx", "typescript"],
+      jsxRuntime: "classic",
+      production: true,
+    });
     const factory = new Function("React", ...KIT_NAMES, `${js}\nreturn Component;`);
     const fn = factory(React, ...KIT_VALUES);
     return typeof fn === "function" ? fn : null;
