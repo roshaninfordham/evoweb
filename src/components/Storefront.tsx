@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { products, type Product } from "@/data/products";
 import type { SlotId } from "@/lib/slots";
-import type { HistoryEntry, LogEntry, SlotState } from "@/lib/types";
-import type { SourceKey } from "@/lib/sources";
+import type { HistoryEntry, LogEntry, SlotState, SourceRef } from "@/lib/types";
 import { trackEvent } from "@/lib/track";
 import { Nav } from "./Nav";
 import { Hero } from "./Hero";
@@ -23,6 +22,10 @@ function stamp(): string {
 function extractMaxPrice(text: string): number | null {
   const match = text.match(/\$?\s?(\d{2,4})/);
   return match ? Number(match[1]) : null;
+}
+
+function crewChip(traceUrl: string | null | undefined): SourceRef[] {
+  return [traceUrl ? { key: "crewai", href: traceUrl } : "crewai"];
 }
 
 export function Storefront() {
@@ -56,7 +59,7 @@ export function Storefront() {
     (
       label: string,
       state: LogEntry["state"],
-      extra?: { agent?: string; href?: string; sources?: SourceKey[] }
+      extra?: { agent?: string; href?: string; sources?: SourceRef[] }
     ) => {
       setLog((prev) => [
         ...prev,
@@ -97,7 +100,7 @@ export function Storefront() {
       });
       source.addEventListener("plan_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog(`Plan: ${data.title}`, "done");
+        appendLog(`Plan: ${data.title}`, "done", { sources: crewChip(data.traceUrl) });
       });
       source.addEventListener("build_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
@@ -106,7 +109,10 @@ export function Storefront() {
           sources: ["crewai"],
         });
       });
-      source.addEventListener("build_done", () => appendLog("Component written", "done"));
+      source.addEventListener("build_done", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog("Component written", "done", { sources: crewChip(data.traceUrl) });
+      });
       source.addEventListener("verify_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog("Verifying in a real Daytona sandbox", "running", {
@@ -159,7 +165,9 @@ export function Storefront() {
       });
       source.addEventListener("review_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog(data.approved ? "Review: approved" : `Review: changes requested — ${data.comment}`, "done");
+        appendLog(data.approved ? "Review: approved" : `Review: changes requested — ${data.comment}`, "done", {
+          sources: crewChip(data.traceUrl),
+        });
       });
       source.addEventListener("pr_merged", (e) => {
         const data = JSON.parse((e as MessageEvent).data);

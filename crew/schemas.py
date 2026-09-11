@@ -16,6 +16,7 @@ class PlanResponse(BaseModel):
     externalFindName: str | None = None
     externalFindPrice: float | None = None
     externalFindUrl: str | None = None
+    traceUrl: str | None = None
 
 
 class BuildRequest(BaseModel):
@@ -27,6 +28,7 @@ class BuildRequest(BaseModel):
 
 class BuildResponse(BaseModel):
     code: str
+    traceUrl: str | None = None
 
 
 class VerifyRequest(BaseModel):
@@ -50,3 +52,4 @@ class ReviewRequest(BaseModel):
 class ReviewResponse(BaseModel):
     approved: bool
     comment: str
+    traceUrl: str | None = None

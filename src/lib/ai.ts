@@ -9,6 +9,7 @@ export type Plan = {
   externalFindName: string | null;
   externalFindPrice: number | null;
   externalFindUrl: string | null;
+  traceUrl: string | null;
 };
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
@@ -37,14 +38,16 @@ export async function planEvolution(
   });
 }
 
-export async function buildComponent(slot: SlotSpec, reasoning: string): Promise<string> {
-  const { code } = await postJSON<{ code: string }>("/build", {
+export async function buildComponent(
+  slot: SlotSpec,
+  reasoning: string
+): Promise<{ code: string; traceUrl: string | null }> {
+  return postJSON("/build", {
     label: slot.label,
     propsContract: slot.propsContract,
     buildInstructions: slot.buildInstructions,
     reasoning,
   });
-  return code;
 }
 
 export async function reviewCode(params: {
@@ -53,6 +56,6 @@ export async function reviewCode(params: {
   code: string;
   propsContract: string;
   verificationOutput: string;
-}): Promise<{ approved: boolean; comment: string }> {
+}): Promise<{ approved: boolean; comment: string; traceUrl: string | null }> {
   return postJSON("/review", params);
 }

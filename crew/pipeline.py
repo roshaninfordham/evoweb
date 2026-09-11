@@ -12,6 +12,7 @@ from config import (
     planner_llm,
 )
 from one_tools import ONE_TOOLS, execute_one_action
+from tracing import clear_trace_url, wait_for_trace_url
 from schemas import (
     BuildRequest,
     BuildResponse,
@@ -76,6 +77,7 @@ def run_plan(req: PlanRequest) -> PlanResponse:
             agent=researcher,
         )
         crew = Crew(agents=[researcher], tasks=[research_task], process=Process.sequential, verbose=True)
+        clear_trace_url()
         research_output = str(crew.kickoff())
 
     planner = Agent(
@@ -111,8 +113,11 @@ def run_plan(req: PlanRequest) -> PlanResponse:
         output_pydantic=PlanResponse,
     )
     crew = Crew(agents=[planner], tasks=[plan_task], process=Process.sequential, verbose=True)
+    clear_trace_url()
     result = crew.kickoff()
-    return result.pydantic if result.pydantic else PlanResponse(**result.json_dict)
+    parsed = result.pydantic if result.pydantic else PlanResponse(**result.json_dict)
+    parsed.traceUrl = wait_for_trace_url()
+    return parsed
 
 
 def _extract_type_name(props_contract: str) -> str:
@@ -147,8 +152,9 @@ def run_build(req: BuildRequest) -> BuildResponse:
     )
     task = Task(description=description, expected_output="Raw component source code only.", agent=builder)
     crew = Crew(agents=[builder], tasks=[task], process=Process.sequential, verbose=True)
+    clear_trace_url()
     result = crew.kickoff()
-    return BuildResponse(code=_strip_code_fences(str(result)))
+    return BuildResponse(code=_strip_code_fences(str(result)), traceUrl=wait_for_trace_url())
 
 
 def _build_harness(code: str, props_contract: str) -> str:
@@ -242,8 +248,11 @@ def run_review(req: ReviewRequest) -> ReviewResponse:
         output_pydantic=ReviewResponse,
     )
     crew = Crew(agents=[reviewer], tasks=[task], process=Process.sequential, verbose=True)
+    clear_trace_url()
     result = crew.kickoff()
-    return result.pydantic if result.pydantic else ReviewResponse(**result.json_dict)
+    parsed = result.pydantic if result.pydantic else ReviewResponse(**result.json_dict)
+    parsed.traceUrl = wait_for_trace_url()
+    return parsed
 
 
 def _strip_code_fences(text: str) -> str:

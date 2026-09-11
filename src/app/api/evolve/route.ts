@@ -35,7 +35,7 @@ async function runSoftwareFactoryStage(
       propsContract: slot.propsContract,
       verificationOutput,
     });
-    send("review_done", { approved: review.approved, comment: review.comment });
+    send("review_done", { approved: review.approved, comment: review.comment, traceUrl: review.traceUrl });
 
     if (review.approved) {
       await mergePR(prUrl);
@@ -135,8 +135,9 @@ async function runPipeline(
     `;
 
     send("build_start", { agent: "Frontend Builder", attempt: 1 });
-    let code = await buildComponent(slot, plan.reasoning);
-    send("build_done", { attempt: 1, code });
+    let built = await buildComponent(slot, plan.reasoning);
+    let code = built.code;
+    send("build_done", { attempt: 1, code, traceUrl: built.traceUrl });
 
     send("verify_start", { agent: "Sandbox Verifier", attempt: 1 });
     let verification = await verifyComponent(code, slot.propsContract);
@@ -144,11 +145,12 @@ async function runPipeline(
 
     if (!verification.ok) {
       send("build_start", { agent: "Frontend Builder", attempt: 2 });
-      code = await buildComponent(
+      built = await buildComponent(
         slot,
         `${plan.reasoning}\n\nA previous attempt failed to typecheck. Fix this error and try again:\n${verification.output}`
       );
-      send("build_done", { attempt: 2, code });
+      code = built.code;
+      send("build_done", { attempt: 2, code, traceUrl: built.traceUrl });
 
       send("verify_start", { agent: "Sandbox Verifier", attempt: 2 });
       verification = await verifyComponent(code, slot.propsContract);

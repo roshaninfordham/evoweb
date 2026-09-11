@@ -1,4 +1,4 @@
-import type { HistoryEntry, LogEntry } from "@/lib/types";
+import type { HistoryEntry, LogEntry, SourceRef } from "@/lib/types";
 import { SOURCES, type SourceKey } from "@/lib/sources";
 
 const STATE_MARK: Record<LogEntry["state"], string> = {
@@ -9,8 +9,10 @@ const STATE_MARK: Record<LogEntry["state"], string> = {
 
 const LIVE_DASHBOARDS: SourceKey[] = ["github", "one", "daytona", "crewai"];
 
-function SourceChip({ source }: { source: SourceKey }) {
-  const { label, href, color } = SOURCES[source];
+function SourceChip({ source }: { source: SourceRef }) {
+  const key = typeof source === "string" ? source : source.key;
+  const { label, color } = SOURCES[key];
+  const href = typeof source === "string" ? SOURCES[key].href : source.href;
   return (
     <a
       href={href}
@@ -102,7 +104,7 @@ export function EnginePanel({
                   {entry.sources && entry.sources.length > 0 && (
                     <span className="flex flex-wrap gap-1.5 mt-0.5">
                       {entry.sources.map((s) => (
-                        <SourceChip key={s} source={s} />
+                        <SourceChip key={typeof s === "string" ? s : s.key} source={s} />
                       ))}
                     </span>
                   )}

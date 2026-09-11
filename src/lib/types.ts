@@ -1,6 +1,8 @@
 import type { SlotId } from "./slots";
 import type { SourceKey } from "./sources";
 
+export type SourceRef = SourceKey | { key: SourceKey; href: string };
+
 export type LogEntry = {
   id: string;
   ts: string;
@@ -8,7 +10,7 @@ export type LogEntry = {
   state: "running" | "done" | "failed";
   agent?: string;
   href?: string;
-  sources?: SourceKey[];
+  sources?: SourceRef[];
 };
 
 export type HistoryEntry = {
