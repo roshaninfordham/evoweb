@@ -6,6 +6,13 @@ const STATE_MARK: Record<LogEntry["state"], string> = {
   failed: "×",
 };
 
+const LIVE_DASHBOARDS = [
+  { label: "GitHub repo", href: "https://github.com/roshaninfordham/evoweb" },
+  { label: "One", href: "https://app.withone.ai/" },
+  { label: "Daytona", href: "https://app.daytona.io/dashboard/sandboxes" },
+  { label: "CrewAI", href: "https://app.crewai.com/" },
+];
+
 export function EnginePanel({
   version,
   flare,
@@ -41,22 +48,38 @@ export function EnginePanel({
             no evolutions running
           </p>
         ) : (
-          <ul className="flex flex-col gap-1.5 font-console text-sm">
+          <ul className="flex flex-col gap-2 font-console text-sm">
             {log.map((entry) => (
               <li key={entry.id} className="flex gap-3 text-text-inverted">
-                <span className="text-text-inverted-dim">{entry.ts}</span>
+                <span className="text-text-inverted-dim shrink-0">{entry.ts}</span>
                 <span
                   className={
                     entry.state === "failed"
-                      ? "text-flare"
+                      ? "text-flare shrink-0"
                       : entry.state === "running"
-                        ? "text-text-inverted-dim"
-                        : "text-text-inverted"
+                        ? "text-text-inverted-dim shrink-0"
+                        : "text-text-inverted shrink-0"
                   }
                 >
                   {STATE_MARK[entry.state]}
                 </span>
-                <span>{entry.label}</span>
+                <span className="flex flex-col">
+                  {entry.href ? (
+                    <a
+                      href={entry.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline underline-offset-2 hover:text-flare"
+                    >
+                      {entry.label}
+                    </a>
+                  ) : (
+                    <span>{entry.label}</span>
+                  )}
+                  {entry.agent && (
+                    <span className="text-xs text-text-inverted-dim">{entry.agent}</span>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -79,6 +102,20 @@ export function EnginePanel({
           </ul>
         </div>
       )}
+
+      <div className="px-6 py-4 border-t border-ink-dimmer flex flex-wrap gap-x-4 gap-y-1">
+        {LIVE_DASHBOARDS.map((d) => (
+          <a
+            key={d.label}
+            href={d.href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-text-inverted-dim underline underline-offset-2 hover:text-flare"
+          >
+            {d.label}
+          </a>
+        ))}
+      </div>
     </aside>
   );
 }

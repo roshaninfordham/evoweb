@@ -5,6 +5,8 @@ export type LogEntry = {
   ts: string;
   label: string;
   state: "running" | "done" | "failed";
+  agent?: string;
+  href?: string;
 };
 
 export type HistoryEntry = {

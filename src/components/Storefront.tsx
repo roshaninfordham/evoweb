@@ -51,9 +51,15 @@ export function Storefront() {
       .catch(() => {});
   }, []);
 
-  const appendLog = useCallback((label: string, state: LogEntry["state"]) => {
-    setLog((prev) => [...prev, { id: crypto.randomUUID(), ts: stamp(), label, state }]);
-  }, []);
+  const appendLog = useCallback(
+    (label: string, state: LogEntry["state"], extra?: { agent?: string; href?: string }) => {
+      setLog((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), ts: stamp(), label, state, agent: extra?.agent, href: extra?.href },
+      ]);
+    },
+    []
+  );
 
   const startEvolution = useCallback(
     (slotId: SlotId) => {
@@ -65,20 +71,28 @@ export function Storefront() {
         setActiveSlot(null);
       };
 
-      source.addEventListener("observe", () => appendLog("Observed a real visitor signal", "done"));
-      source.addEventListener("plan_start", () => appendLog("Planning the change", "running"));
+      source.addEventListener("observe", () =>
+        appendLog("Observed a real visitor signal", "done", { agent: "Observer" })
+      );
+      source.addEventListener("plan_start", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog("Planning the change", "running", { agent: data.agents?.join(" -> ") });
+      });
       source.addEventListener("plan_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`Plan: ${data.title}`, "done");
       });
       source.addEventListener("build_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog(data.attempt > 1 ? "Rewriting after a failed check" : "Writing component", "running");
+        appendLog(data.attempt > 1 ? "Rewriting after a failed check" : "Writing component", "running", {
+          agent: data.agent,
+        });
       });
       source.addEventListener("build_done", () => appendLog("Component written", "done"));
-      source.addEventListener("verify_start", () =>
-        appendLog("Verifying in an isolated sandbox", "running")
-      );
+      source.addEventListener("verify_start", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog("Verifying in a real Daytona sandbox", "running", { agent: data.agent });
+      });
       source.addEventListener("verify_done", () => appendLog("Verified", "done"));
       source.addEventListener("verify_failed", () => appendLog("Verification failed", "failed"));
       source.addEventListener("deployed", (e) => {
@@ -101,22 +115,30 @@ export function Storefront() {
         setFlare(true);
         setTimeout(() => setFlare(false), 1400);
       });
-      source.addEventListener("pr_open_start", () => appendLog("Opening a pull request", "running"));
+      source.addEventListener("pr_open_start", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog("Opening a real pull request on GitHub", "running", { agent: data.agent });
+      });
       source.addEventListener("pr_open_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog(`PR opened: ${data.branch}`, "done");
+        appendLog(`PR opened: ${data.branch}`, "done", { href: data.prUrl });
       });
-      source.addEventListener("review_start", () => appendLog("A second agent is reviewing the PR", "running"));
+      source.addEventListener("review_start", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog("A second agent is reviewing the PR", "running", { agent: data.agent });
+      });
       source.addEventListener("review_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(data.approved ? "Review: approved" : `Review: changes requested — ${data.comment}`, "done");
       });
-      source.addEventListener("pr_merged", () => {
-        appendLog("PR merged into main", "done");
+      source.addEventListener("pr_merged", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog("PR merged into main", "done", { href: data.prUrl });
         finish();
       });
-      source.addEventListener("pr_left_open", () => {
-        appendLog("PR left open for a human to look at", "done");
+      source.addEventListener("pr_left_open", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog("PR left open for a human to look at", "done", { href: data.prUrl });
         finish();
       });
       source.addEventListener("pr_failed", (e) => {

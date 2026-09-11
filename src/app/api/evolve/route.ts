@@ -17,7 +17,7 @@ async function runSoftwareFactoryStage(
   send: (event: string, data: unknown) => void
 ) {
   try {
-    send("pr_open_start", {});
+    send("pr_open_start", { agent: "Evolution Engine" });
     const { prUrl, branch } = await openEvolutionPR({
       slotId: slot.id,
       version,
@@ -27,7 +27,7 @@ async function runSoftwareFactoryStage(
     });
     send("pr_open_done", { prUrl, branch });
 
-    send("review_start", {});
+    send("review_start", { agent: "Senior Code Reviewer" });
     const review = await reviewCode({
       title: plan.title,
       reasoning: plan.reasoning,
@@ -108,7 +108,7 @@ async function runPipeline(
       send("skip", { message: "no evidence yet" });
       return;
     }
-    send("observe", { evidence });
+    send("observe", { agent: "Observer", evidence });
 
     const versionRow = await sql`
       SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM evolutions WHERE slot_id = ${slot.id}
@@ -119,7 +119,7 @@ async function runPipeline(
     const budgetContext = slot.id === "budget-match" ? await getBudgetContext() : null;
     const needsResearch = slot.id === "budget-match" ? budgetContext?.offer == null : slot.needsResearch;
 
-    send("plan_start", {});
+    send("plan_start", { agents: needsResearch ? ["Market Researcher", "Product Planner"] : ["Product Planner"] });
     const plan = await planEvolution(slot, evidence, needsResearch);
     send("plan_done", plan);
 
@@ -134,23 +134,23 @@ async function runPipeline(
       WHERE slot_id = ${slot.id} AND version = ${version}
     `;
 
-    send("build_start", { attempt: 1 });
+    send("build_start", { agent: "Frontend Builder", attempt: 1 });
     let code = await buildComponent(slot, plan.reasoning);
     send("build_done", { attempt: 1, code });
 
-    send("verify_start", { attempt: 1 });
+    send("verify_start", { agent: "Sandbox Verifier", attempt: 1 });
     let verification = await verifyComponent(code, slot.propsContract);
     send(verification.ok ? "verify_done" : "verify_failed", { attempt: 1, output: verification.output });
 
     if (!verification.ok) {
-      send("build_start", { attempt: 2 });
+      send("build_start", { agent: "Frontend Builder", attempt: 2 });
       code = await buildComponent(
         slot,
         `${plan.reasoning}\n\nA previous attempt failed to typecheck. Fix this error and try again:\n${verification.output}`
       );
       send("build_done", { attempt: 2, code });
 
-      send("verify_start", { attempt: 2 });
+      send("verify_start", { agent: "Sandbox Verifier", attempt: 2 });
       verification = await verifyComponent(code, slot.propsContract);
       send(verification.ok ? "verify_done" : "verify_failed", { attempt: 2, output: verification.output });
     }

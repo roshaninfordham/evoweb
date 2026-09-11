@@ -1,8 +1,16 @@
+import base64
+import json
 import re
 
 from crewai import Agent, Crew, Process, Task
 
-from config import builder_llm, planner_llm
+from config import (
+    DAYTONA_CONNECTION_KEY,
+    DAYTONA_EXEC_ACTION_ID,
+    DAYTONA_SANDBOX_ID,
+    builder_llm,
+    planner_llm,
+)
 from one_tools import ONE_TOOLS
 from schemas import (
     BuildRequest,
@@ -15,7 +23,17 @@ from schemas import (
     VerifyResponse,
 )
 
-SLOT_KIT_NAMES = "SlotPanel, SlotLabel, SlotRow, SlotButton, SlotBadge, SlotLink, SlotRangeSlider, SlotTable"
+SLOT_KIT_NAME_LIST = [
+    "SlotPanel",
+    "SlotLabel",
+    "SlotRow",
+    "SlotButton",
+    "SlotBadge",
+    "SlotLink",
+    "SlotRangeSlider",
+    "SlotTable",
+]
+SLOT_KIT_NAMES = ", ".join(SLOT_KIT_NAME_LIST)
 
 ONE_WORKFLOW = (
     "You reach real external services only through One. Workflow: call list_one_connections to find "
@@ -97,7 +115,13 @@ def run_plan(req: PlanRequest) -> PlanResponse:
     return result.pydantic if result.pydantic else PlanResponse(**result.json_dict)
 
 
+def _extract_type_name(props_contract: str) -> str:
+    match = re.search(r"type\s+(\w+)\s*=", props_contract)
+    return match.group(1) if match else "Props"
+
+
 def run_build(req: BuildRequest) -> BuildResponse:
+    type_name = _extract_type_name(req.propsContract)
     builder = Agent(
         role="Frontend Builder",
         goal="Write a single, small, correct React component for a storefront slot.",
@@ -112,7 +136,8 @@ def run_build(req: BuildRequest) -> BuildResponse:
         f"Props contract (do not redeclare it, just rely on it):\n{req.propsContract}\n\n"
         "Hard rules:\n"
         "- Output ONLY the component code, no markdown fences, no explanation.\n"
-        "- Define exactly one function: `function Component(props) { ... }`.\n"
+        f"- Define exactly one function, typed against the contract above: "
+        f"`function Component(props: {type_name}) {{ ... }}`.\n"
         "- No import, export, require, or dynamic import statements of any kind.\n"
         f"- No className, no inline style objects, no raw Tailwind — only compose these already-styled "
         f"primitives, which are already in scope: {SLOT_KIT_NAMES}.\n"
@@ -126,33 +151,58 @@ def run_build(req: BuildRequest) -> BuildResponse:
     return BuildResponse(code=_strip_code_fences(str(result)))
 
 
+def _build_harness(code: str, props_contract: str) -> str:
+    type_name = _extract_type_name(props_contract)
+    declares = "\n".join(f"declare const {name}: any;" for name in SLOT_KIT_NAME_LIST)
+    return (
+        "declare const React: any;\n"
+        f"{declares}\n"
+        f"{props_contract}\n\n"
+        f"{code}\n\n"
+        f"const __check: (props: {type_name}) => unknown = Component;\nvoid __check;\n"
+    )
+
+
 def run_verify(req: VerifyRequest) -> VerifyResponse:
+    harness = _build_harness(req.code, req.propsContract)
+    encoded = base64.b64encode(harness.encode()).decode()
+    tsconfig = json.dumps(
+        {"compilerOptions": {"target": "ES2020", "jsx": "react", "strict": True, "noEmit": True, "skipLibCheck": True}}
+    )
+    shell_command = (
+        f"mkdir -p /tmp/verify && echo {encoded} | base64 -d > /tmp/verify/component.tsx && "
+        f"cd /tmp/verify && echo '{tsconfig}' > tsconfig.json && tsc -p . 2>&1 ; echo EXIT_CODE=$?"
+    )
+    data_json = json.dumps({"command": shell_command, "timeout": 30})
+    path_vars_json = json.dumps({"sandboxId": DAYTONA_SANDBOX_ID})
+
     verifier = Agent(
         role="Sandbox Verifier",
-        goal="Actually run a real typecheck of generated code inside an isolated Daytona sandbox.",
+        goal="Actually run a real typecheck of generated code inside a Daytona sandbox and report the true result.",
         backstory=(
-            f"You have access to One, which connects to Daytona (platform slug: 'daytona') for creating "
-            f"throwaway Linux sandboxes. {ONE_WORKFLOW}"
+            "You have access to One's execute_one_action tool, which reaches Daytona (platform slug: "
+            "'daytona') for running commands in a real, already-running sandbox. Never fabricate a "
+            "result — only report what the tool actually returns."
         ),
         tools=ONE_TOOLS,
         llm=builder_llm(),
         verbose=True,
     )
-    type_name_match = re.search(r"type\s+(\w+)\s*=", req.propsContract)
-    type_name = type_name_match.group(1) if type_name_match else "Props"
-    harness = (
-        f"{req.propsContract}\n\n{req.code}\n\n"
-        f"const __check: (props: {type_name}) => unknown = Component;\nvoid __check;\n"
-    )
     task = Task(
         description=(
-            "Using Daytona (platform 'daytona') through One: create a fresh sandbox, write a file "
-            f"named component.tsx with this exact content:\n\n{harness}\n\n"
-            "Install typescript and react type declarations if needed, then run `npx tsc --noEmit` "
-            "against that file with a tsconfig that enables jsx and strict mode. Report back whether "
-            "it passed and the raw compiler output (truncate to 4000 characters). If Daytona is not "
-            "reachable or no sandbox action is available, say so plainly in output and set ok to false — "
-            "never claim a passing check you didn't actually run."
+            "Call execute_one_action with EXACTLY these arguments — do not modify them, do not look up "
+            "actions, do not call any other tool first:\n"
+            f'platform="daytona"\n'
+            f'action_id="{DAYTONA_EXEC_ACTION_ID}"\n'
+            f'connection_key="{DAYTONA_CONNECTION_KEY}"\n'
+            f"path_vars_json='{path_vars_json}'\n"
+            f"data_json='{data_json}'\n\n"
+            "If that call fails because the connection key is stale, call list_one_connections to get "
+            "the current daytona connection key and retry once with that key instead.\n\n"
+            "The tool's response contains a `result` string with the raw compiler output, ending with "
+            "a line like `EXIT_CODE=0` or `EXIT_CODE=<nonzero>`. Set ok=true only if EXIT_CODE=0. Set "
+            "output to the compiler output text (everything before the EXIT_CODE line), truncated to "
+            "4000 characters. Never claim a passing check you didn't actually see EXIT_CODE=0 for."
         ),
         expected_output="A JSON object with ok (boolean) and output (string, the compiler output).",
         agent=verifier,
