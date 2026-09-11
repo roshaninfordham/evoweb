@@ -23,3 +23,17 @@ export type HistoryEntry = {
 };
 
 export type SlotState = { version: number; code: string; propsSnapshot: Record<string, unknown> | null } | null;
+
+export type AgentStatus = "idle" | "active" | "done" | "failed";
+
+export const AGENT_ROSTER = [
+  "Observer",
+  "Market Researcher",
+  "Product Planner",
+  "Frontend Builder",
+  "Sandbox Verifier",
+  "Senior Code Reviewer",
+  "Evolution Engine",
+] as const;
+
+export type AgentName = (typeof AGENT_ROSTER)[number];

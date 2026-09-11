@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { products, type Product } from "@/data/products";
 import type { SlotId } from "@/lib/slots";
-import type { HistoryEntry, LogEntry, SlotState, SourceRef } from "@/lib/types";
+import { AGENT_ROSTER, type AgentName, type AgentStatus, type HistoryEntry, type LogEntry, type SlotState, type SourceRef } from "@/lib/types";
 import { trackEvent } from "@/lib/track";
 import { Nav } from "./Nav";
 import { Hero } from "./Hero";
@@ -44,6 +44,23 @@ export function Storefront() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [activeSlot, setActiveSlot] = useState<SlotId | null>(null);
   const [flare, setFlare] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<Record<AgentName, AgentStatus>>(
+    () => Object.fromEntries(AGENT_ROSTER.map((name) => [name, "idle"])) as Record<AgentName, AgentStatus>
+  );
+
+  const setAgents = useCallback((names: (AgentName | undefined)[], status: AgentStatus) => {
+    const real = names.filter((n): n is AgentName => Boolean(n));
+    if (real.length === 0) return;
+    setAgentStatus((prev) => {
+      const next = { ...prev };
+      for (const name of real) next[name] = status;
+      return next;
+    });
+  }, []);
+
+  const resetAgents = useCallback(() => {
+    setAgentStatus(Object.fromEntries(AGENT_ROSTER.map((name) => [name, "idle"])) as Record<AgentName, AgentStatus>);
+  }, []);
 
   useEffect(() => {
     fetch("/api/state")
@@ -92,13 +109,15 @@ export function Storefront() {
     setHistory([]);
     setLog([]);
     setActiveSlot(null);
-  }, []);
+    resetAgents();
+  }, [resetAgents]);
 
   const startEvolution = useCallback(
     (slotId: SlotId) => {
       if (evolutionInFlight.current) return;
       evolutionInFlight.current = true;
       setActiveSlot(slotId);
+      resetAgents();
       const source = new EventSource(`/api/evolve?slotId=${slotId}`);
 
       const finish = () => {
@@ -107,9 +126,10 @@ export function Storefront() {
         setActiveSlot(null);
       };
 
-      source.addEventListener("observe", () =>
-        appendLog("Observed a real visitor signal", "done", { agent: "Observer" })
-      );
+      source.addEventListener("observe", () => {
+        appendLog("Observed a real visitor signal", "done", { agent: "Observer" });
+        setAgents(["Observer"], "done");
+      });
       source.addEventListener("plan_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         const researching = data.agents?.includes("Market Researcher");
@@ -117,10 +137,12 @@ export function Storefront() {
           agent: data.agents?.join(" -> "),
           sources: researching ? ["crewai", "you"] : ["crewai"],
         });
+        setAgents(researching ? ["Market Researcher", "Product Planner"] : ["Product Planner"], "active");
       });
       source.addEventListener("plan_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`Plan: ${data.title}`, "done", { sources: crewChip(data.traceUrl) });
+        setAgents(["Market Researcher", "Product Planner"], "done");
       });
       source.addEventListener("build_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
@@ -128,6 +150,7 @@ export function Storefront() {
           agent: data.agent,
           sources: ["crewai"],
         });
+        setAgents(["Frontend Builder"], "active");
       });
       source.addEventListener("build_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
@@ -135,18 +158,24 @@ export function Storefront() {
           sources: crewChip(data.traceUrl),
           code: data.code,
         });
+        setAgents(["Frontend Builder"], "done");
       });
       source.addEventListener("verify_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("Verifying in a real Daytona sandbox", "running", {
+        appendLog("Verifying in a real isolated sandbox", "running", {
           agent: data.agent,
           sources: ["daytona"],
         });
+        setAgents(["Sandbox Verifier"], "active");
       });
-      source.addEventListener("verify_done", () => appendLog("Verified", "done"));
+      source.addEventListener("verify_done", () => {
+        appendLog("Verified", "done");
+        setAgents(["Sandbox Verifier"], "done");
+      });
       source.addEventListener("verify_failed", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`Verification failed: ${String(data.output).slice(0, 120)}`, "failed");
+        setAgents(["Sandbox Verifier"], "failed");
       });
       source.addEventListener("deployed", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
@@ -174,10 +203,12 @@ export function Storefront() {
           agent: data.agent,
           sources: ["github"],
         });
+        setAgents(["Evolution Engine"], "active");
       });
       source.addEventListener("pr_open_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`PR opened: ${data.branch}`, "done", { href: data.prUrl, sources: ["github"] });
+        setAgents(["Evolution Engine"], "done");
       });
       source.addEventListener("review_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
@@ -185,16 +216,19 @@ export function Storefront() {
           agent: data.agent,
           sources: ["crewai"],
         });
+        setAgents(["Senior Code Reviewer"], "active");
       });
       source.addEventListener("review_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(data.approved ? "Review: approved" : `Review: changes requested — ${data.comment}`, "done", {
           sources: crewChip(data.traceUrl),
         });
+        setAgents(["Senior Code Reviewer"], "done");
       });
       source.addEventListener("pr_merged", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog("PR merged into main", "done", { href: data.prUrl, sources: ["github"] });
+        setAgents(["Evolution Engine"], "done");
         finish();
       });
       source.addEventListener("pr_left_open", (e) => {
@@ -205,6 +239,7 @@ export function Storefront() {
       source.addEventListener("pr_failed", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`PR step failed: ${data.message}`, "failed");
+        setAgents(["Evolution Engine"], "failed");
         finish();
       });
       source.addEventListener("skip", (e) => {
@@ -215,6 +250,7 @@ export function Storefront() {
       source.addEventListener("failed", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
         appendLog(`Build failed verification twice — aborted: ${String(data.output).slice(0, 120)}`, "failed");
+        setAgents(["Frontend Builder"], "failed");
         finish();
       });
       source.addEventListener("error", (e) => {
@@ -231,7 +267,7 @@ export function Storefront() {
         finish();
       });
     },
-    [appendLog]
+    [appendLog, setAgents, resetAgents]
   );
 
   const handleSearch = useCallback(
@@ -358,6 +394,7 @@ export function Storefront() {
         log={log}
         history={history}
         onReset={handleReset}
+        agentStatus={agentStatus}
       />
     </div>
   );

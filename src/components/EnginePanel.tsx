@@ -1,4 +1,4 @@
-import type { HistoryEntry, LogEntry, SourceRef } from "@/lib/types";
+import { AGENT_ROSTER, type AgentName, type AgentStatus, type HistoryEntry, type LogEntry, type SourceRef } from "@/lib/types";
 import { SOURCES, type SourceKey } from "@/lib/sources";
 
 const STATE_MARK: Record<LogEntry["state"], string> = {
@@ -43,6 +43,35 @@ function StateMark({ state }: { state: LogEntry["state"] }) {
   );
 }
 
+function AgentPill({ name, status }: { name: AgentName; status: AgentStatus }) {
+  const dot =
+    status === "active" ? (
+      <span className="relative flex h-1.5 w-1.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-flare opacity-75" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-flare" />
+      </span>
+    ) : (
+      <span
+        className="h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{
+          backgroundColor:
+            status === "failed" ? "var(--flare)" : status === "done" ? "var(--text-on-ink)" : "var(--ink-dimmer)",
+        }}
+      />
+    );
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ${
+        status === "idle" ? "border-ink-dimmer text-text-inverted-dim" : "border-ink-dimmer/0 text-text-inverted"
+      }`}
+      style={status !== "idle" ? { borderColor: "var(--ink-dimmer)" } : undefined}
+    >
+      {dot}
+      {name}
+    </span>
+  );
+}
+
 export function EnginePanel({
   version,
   flare,
@@ -50,6 +79,7 @@ export function EnginePanel({
   log,
   history,
   onReset,
+  agentStatus,
 }: {
   version: string;
   flare: boolean;
@@ -57,9 +87,10 @@ export function EnginePanel({
   log: LogEntry[];
   history: HistoryEntry[];
   onReset: () => void;
+  agentStatus: Record<AgentName, AgentStatus>;
 }) {
   return (
-    <aside className="bg-ink text-text-inverted flex flex-col min-h-[420px] lg:min-h-screen">
+    <aside className="bg-ink text-text-inverted flex flex-col min-h-[420px] lg:min-h-screen min-w-0">
       <div className="px-6 pt-8 pb-6 border-b border-ink-dimmer relative overflow-hidden">
         <div className="flex items-start justify-between">
           <p className="text-xs text-text-inverted-dim font-console">evo engine</p>
@@ -81,6 +112,15 @@ export function EnginePanel({
         {flare && (
           <span className="absolute left-0 bottom-0 h-px w-full bg-flare animate-flare" />
         )}
+      </div>
+
+      <div className="px-6 py-5 border-b border-ink-dimmer">
+        <p className="text-xs text-text-inverted-dim mb-3">agents</p>
+        <div className="flex flex-wrap gap-1.5">
+          {AGENT_ROSTER.map((name) => (
+            <AgentPill key={name} name={name} status={agentStatus[name]} />
+          ))}
+        </div>
       </div>
 
       <div className="px-6 py-6 flex-1 overflow-y-auto">
