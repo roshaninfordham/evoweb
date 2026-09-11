@@ -100,6 +100,28 @@ export function Storefront() {
         ]);
         setFlare(true);
         setTimeout(() => setFlare(false), 1400);
+      });
+      source.addEventListener("pr_open_start", () => appendLog("Opening a pull request", "running"));
+      source.addEventListener("pr_open_done", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog(`PR opened: ${data.branch}`, "done");
+      });
+      source.addEventListener("review_start", () => appendLog("A second agent is reviewing the PR", "running"));
+      source.addEventListener("review_done", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog(data.approved ? "Review: approved" : `Review: changes requested — ${data.comment}`, "done");
+      });
+      source.addEventListener("pr_merged", () => {
+        appendLog("PR merged into main", "done");
+        finish();
+      });
+      source.addEventListener("pr_left_open", () => {
+        appendLog("PR left open for a human to look at", "done");
+        finish();
+      });
+      source.addEventListener("pr_failed", (e) => {
+        const data = JSON.parse((e as MessageEvent).data);
+        appendLog(`PR step failed: ${data.message}`, "failed");
         finish();
       });
       source.addEventListener("skip", () => {

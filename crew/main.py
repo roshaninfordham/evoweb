@@ -3,8 +3,8 @@ from fastapi import FastAPI, HTTPException
 
 load_dotenv()
 
-from pipeline import run_build, run_plan, run_verify  # noqa: E402
-from schemas import BuildRequest, PlanRequest, VerifyRequest  # noqa: E402
+from pipeline import run_build, run_plan, run_review, run_verify  # noqa: E402
+from schemas import BuildRequest, PlanRequest, ReviewRequest, VerifyRequest  # noqa: E402
 
 app = FastAPI(title="evoweb-crew")
 
@@ -34,5 +34,13 @@ def build(req: BuildRequest):
 def verify(req: VerifyRequest):
     try:
         return run_verify(req)
+    except Exception as err:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.post("/review")
+def review(req: ReviewRequest):
+    try:
+        return run_review(req)
     except Exception as err:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(err)) from err

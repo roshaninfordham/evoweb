@@ -37,3 +37,16 @@ class VerifyRequest(BaseModel):
 class VerifyResponse(BaseModel):
     ok: bool
     output: str
+
+
+class ReviewRequest(BaseModel):
+    title: str
+    reasoning: str
+    code: str
+    propsContract: str
+    verificationOutput: str
+
+
+class ReviewResponse(BaseModel):
+    approved: bool
+    comment: str

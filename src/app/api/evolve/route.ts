@@ -2,10 +2,52 @@ import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import { SLOTS, type SlotId, type SlotSpec } from "@/lib/slots";
 import { getBudgetContext, getEvidenceForSlot } from "@/lib/triggers";
-import { planEvolution, buildComponent, type Plan } from "@/lib/ai";
+import { planEvolution, buildComponent, reviewCode, type Plan } from "@/lib/ai";
 import { verifyComponent } from "@/lib/sandbox";
 import { createSSEStream } from "@/lib/sse";
 import type { BudgetOffer } from "@/lib/pricing";
+import { commentOnPR, mergePR, openEvolutionPR } from "@/lib/git";
+
+async function runSoftwareFactoryStage(
+  slot: SlotSpec,
+  version: number,
+  plan: Plan,
+  code: string,
+  verificationOutput: string,
+  send: (event: string, data: unknown) => void
+) {
+  try {
+    send("pr_open_start", {});
+    const { prUrl, branch } = await openEvolutionPR({
+      slotId: slot.id,
+      version,
+      title: plan.title,
+      reasoning: plan.reasoning,
+      code,
+    });
+    send("pr_open_done", { prUrl, branch });
+
+    send("review_start", {});
+    const review = await reviewCode({
+      title: plan.title,
+      reasoning: plan.reasoning,
+      code,
+      propsContract: slot.propsContract,
+      verificationOutput,
+    });
+    send("review_done", { approved: review.approved, comment: review.comment });
+
+    if (review.approved) {
+      await mergePR(prUrl);
+      send("pr_merged", { prUrl });
+    } else {
+      await commentOnPR(prUrl, review.comment);
+      send("pr_left_open", { prUrl, comment: review.comment });
+    }
+  } catch (err) {
+    send("pr_failed", { message: err instanceof Error ? err.message : String(err) });
+  }
+}
 
 function buildPropsSnapshot(
   slotId: SlotId,
@@ -140,6 +182,8 @@ async function runPipeline(
       reasoning: plan.reasoning,
       propsSnapshot,
     });
+
+    await runSoftwareFactoryStage(slot, version, plan, code, verification.output, send);
   } catch (err) {
     send("error", { message: err instanceof Error ? err.message : String(err) });
   } finally {

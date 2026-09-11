@@ -46,3 +46,13 @@ export async function buildComponent(slot: SlotSpec, reasoning: string): Promise
   });
   return code;
 }
+
+export async function reviewCode(params: {
+  title: string;
+  reasoning: string;
+  code: string;
+  propsContract: string;
+  verificationOutput: string;
+}): Promise<{ approved: boolean; comment: string }> {
+  return postJSON("/review", params);
+}

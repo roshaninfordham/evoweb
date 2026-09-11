@@ -2,10 +2,8 @@ import os
 
 from crewai import LLM
 
-ONE_MCP_URL = "https://mcp.withone.ai/mcp"
-
-PLANNER_MODEL = "anthropic/claude-haiku-4-5-20251001"
-BUILDER_MODEL = "anthropic/claude-sonnet-5"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+NVIDIA_MODEL = "deepseek-ai/deepseek-v4-pro-0813"
 
 
 def require_env(name: str) -> str:
@@ -15,17 +13,18 @@ def require_env(name: str) -> str:
     return value
 
 
+def _nvidia_llm(temperature: float) -> LLM:
+    return LLM(
+        model=f"openai/{NVIDIA_MODEL}",
+        base_url=NVIDIA_BASE_URL,
+        api_key=require_env("NVIDIA_API_KEY"),
+        temperature=temperature,
+    )
+
+
 def planner_llm() -> LLM:
-    return LLM(model=PLANNER_MODEL, api_key=require_env("ANTHROPIC_API_KEY"), temperature=0.3)
+    return _nvidia_llm(temperature=0.3)
 
 
 def builder_llm() -> LLM:
-    return LLM(model=BUILDER_MODEL, api_key=require_env("ANTHROPIC_API_KEY"), temperature=0.2)
-
-
-def one_mcp_server_params() -> dict:
-    return {
-        "url": ONE_MCP_URL,
-        "transport": "streamable-http",
-        "headers": {"Authorization": f"Bearer {require_env('ONE_API_KEY')}"},
-    }
+    return _nvidia_llm(temperature=0.2)
