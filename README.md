@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nova — a store that builds itself
 
-## Getting Started
+A minimal storefront that observes real visitor behavior and has a crew of
+agents genuinely build, verify, and ship new UI capabilities into itself —
+live. Built for the **You.com × One Hackathon: NYC Edition 002**.
 
-First, run the development server:
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for how the pieces fit together
+(diagram + why each sponsor tool is used where it is).
+
+## Running it locally
+
+Two processes, in two terminals:
 
 ```bash
+# 1. the storefront (Next.js)
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 2. the crew (Python / FastAPI / CrewAI)
+cd crew
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # fill in GEMINI_API_KEY, ONE_API_KEY
+uvicorn main:app --port 8787
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Search with a price
+budget, leave feedback, or open a couple of product details — each is a
+real signal that can trigger an evolution, streamed live in the right-hand
+engine panel.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What's real here
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The generated component code is genuinely written by an LLM against a
+  fixed props contract, genuinely type-checked inside an isolated Daytona
+  sandbox, genuinely researched via You.com when relevant, and genuinely
+  opened/reviewed/merged as a GitHub pull request by a second agent — not
+  simulated for the demo.
+- The one thing that is **not** left to an LLM: whether a markdown ever
+  goes below cost (`src/lib/pricing.ts`) — that's plain deterministic code.
