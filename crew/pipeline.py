@@ -8,6 +8,7 @@ from config import (
     DAYTONA_CONNECTION_KEY,
     DAYTONA_EXEC_ACTION_ID,
     DAYTONA_SANDBOX_ID,
+    DAYTONA_START_ACTION_ID,
     YOU_CONNECTION_KEY,
     YOU_SEARCH_ACTION_ID,
     builder_llm,
@@ -230,6 +231,17 @@ def run_verify(req: VerifyRequest) -> VerifyResponse:
     )
     data_json = json.dumps({"command": shell_command, "timeout": 30})
     path_vars_json = json.dumps({"sandboxId": DAYTONA_SANDBOX_ID})
+
+    # The sandbox auto-stops after 15 minutes idle (Daytona default) — resuming
+    # it first is cheap and idempotent if already running, and makes this
+    # self-healing instead of failing with "failed to resolve container".
+    execute_one_action.func(
+        platform="daytona",
+        action_id=DAYTONA_START_ACTION_ID,
+        connection_key=DAYTONA_CONNECTION_KEY,
+        path_vars_json=json.dumps({"sandboxIdOrName": DAYTONA_SANDBOX_ID}),
+        data_json="{}",
+    )
 
     raw = execute_one_action.func(
         platform="daytona",

@@ -11,6 +11,7 @@ NVIDIA_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
 # trial and error the first time) on every single evolution.
 DAYTONA_SANDBOX_ID = "a34bb369-f931-4523-abcf-d3decb01c418"
 DAYTONA_EXEC_ACTION_ID = "conn_mod_def::GNF5XuTz34A::sxtFNI_cQICzppPkTCzHLg"
+DAYTONA_START_ACTION_ID = "conn_mod_def::GMgWY8EvAFA::7-tRbXRXS82QcWip-RUTxQ"
 DAYTONA_CONNECTION_KEY = "live::daytona::default::2615bc602a3b4d37aa73a3a933817218"
 
 # Same rationale as Daytona above: the search action + connection key are already
