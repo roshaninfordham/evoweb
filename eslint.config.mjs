@@ -23,6 +23,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Separate Python service, not part of this TS project.
     "crew/**",
+    // Audit-trail archive of generated components — never imported by the app,
+    // relies on globals only present in the runtime sandbox (see DynamicSlot).
+    "src/components/slots/generated/**",
   ]),
 ]);
 

@@ -103,6 +103,14 @@ async function runPipeline(
       return;
     }
 
+    const inProgress = await sql`
+      SELECT 1 FROM evolutions WHERE slot_id = ${slot.id} AND status IN ('planning', 'building') LIMIT 1
+    `;
+    if (inProgress.length > 0) {
+      send("skip", { message: "an evolution for this slot is already in progress" });
+      return;
+    }
+
     const evidence = await getEvidenceForSlot(slot.id);
     if (evidence.length === 0) {
       send("skip", { message: "no evidence yet" });

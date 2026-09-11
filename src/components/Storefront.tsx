@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { products, type Product } from "@/data/products";
 import type { SlotId } from "@/lib/slots";
 import type { HistoryEntry, LogEntry, SlotState, SourceRef } from "@/lib/types";
@@ -77,13 +77,18 @@ export function Storefront() {
     []
   );
 
+  const evolutionInFlight = useRef(false);
+
   const startEvolution = useCallback(
     (slotId: SlotId) => {
-      setActiveSlot((current) => current ?? slotId);
+      if (evolutionInFlight.current) return;
+      evolutionInFlight.current = true;
+      setActiveSlot(slotId);
       const source = new EventSource(`/api/evolve?slotId=${slotId}`);
 
       const finish = () => {
         source.close();
+        evolutionInFlight.current = false;
         setActiveSlot(null);
       };
 
