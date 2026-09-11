@@ -49,17 +49,29 @@ export function EnginePanel({
   busy,
   log,
   history,
+  onReset,
 }: {
   version: string;
   flare: boolean;
   busy: boolean;
   log: LogEntry[];
   history: HistoryEntry[];
+  onReset: () => void;
 }) {
   return (
     <aside className="bg-ink text-text-inverted flex flex-col min-h-[420px] lg:min-h-screen">
       <div className="px-6 pt-8 pb-6 border-b border-ink-dimmer relative overflow-hidden">
-        <p className="text-xs text-text-inverted-dim font-console">evo engine</p>
+        <div className="flex items-start justify-between">
+          <p className="text-xs text-text-inverted-dim font-console">evo engine</p>
+          <button
+            type="button"
+            onClick={onReset}
+            disabled={busy}
+            className="text-xs text-text-inverted-dim underline underline-offset-2 hover:text-flare disabled:opacity-40 disabled:no-underline"
+          >
+            Reset demo
+          </button>
+        </div>
         <div className="flex items-baseline gap-3 mt-1">
           <span className="font-display text-3xl">{version}</span>
           <span className="text-xs text-text-inverted-dim">

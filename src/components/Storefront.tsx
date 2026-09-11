@@ -80,6 +80,20 @@ export function Storefront() {
 
   const evolutionInFlight = useRef(false);
 
+  const handleReset = useCallback(async () => {
+    if (evolutionInFlight.current) return;
+    await fetch("/api/reset", { method: "POST" }).catch(() => {});
+    setCategory("All");
+    setSearchQuery("");
+    setExpandedId(null);
+    setViewedNames(new Set());
+    setPriceFilterValue(MAX_CATALOG_PRICE);
+    setSlots({ "price-filter": null, "budget-match": null, "compare-products": null });
+    setHistory([]);
+    setLog([]);
+    setActiveSlot(null);
+  }, []);
+
   const startEvolution = useCallback(
     (slotId: SlotId) => {
       if (evolutionInFlight.current) return;
@@ -294,6 +308,13 @@ export function Storefront() {
         <Nav category={category} onCategoryChange={setCategory} />
         <Hero product={featured} onView={() => handleView(featured)} />
         <SearchBar onSearch={handleSearch} />
+        {!slots["price-filter"] && !slots["budget-match"] && !slots["compare-products"] && (
+          <p className="-mt-2 pb-4 text-xs text-text-dim">
+            Try: &ldquo;sneakers under $100&rdquo; · &ldquo;sneakers under $10&rdquo; (too low for any
+            markdown, so it searches the web instead) · or open two different products&apos; details to
+            compare them.
+          </p>
+        )}
         <ProductGrid
           products={filtered}
           expandedId={expandedId}
@@ -336,6 +357,7 @@ export function Storefront() {
         busy={activeSlot !== null}
         log={log}
         history={history}
+        onReset={handleReset}
       />
     </div>
   );

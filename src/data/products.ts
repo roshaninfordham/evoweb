@@ -1,8 +1,3 @@
-export type ProductArt = {
-  shape: "swoop" | "block" | "ring" | "peak";
-  colors: [string, string];
-};
-
 export type Product = {
   id: string;
   name: string;
@@ -13,8 +8,13 @@ export type Product = {
   blurb: string;
   weightGrams: number;
   rating: number;
-  art: ProductArt;
+  /** Real photo (via You.com search, Unsplash), verified to load. Illustrative of the category, not this exact fictional item. */
+  imageUrl: string;
 };
+
+function unsplash(photoId: string): string {
+  return `https://images.unsplash.com/${photoId}?w=480&q=80&auto=format&fit=crop`;
+}
 
 export const products: Product[] = [
   {
@@ -26,7 +26,7 @@ export const products: Product[] = [
     blurb: "Everyday trainer, breathable knit upper.",
     weightGrams: 260,
     rating: 4.6,
-    art: { shape: "swoop", colors: ["#1c2b2a", "#4c5fef"] },
+    imageUrl: unsplash("photo-1608231387042-66d1773070a5"),
   },
   {
     id: "field-low",
@@ -37,7 +37,7 @@ export const products: Product[] = [
     blurb: "Low-profile court shoe, reinforced toe.",
     weightGrams: 285,
     rating: 4.3,
-    art: { shape: "block", colors: ["#6f827f", "#edeeea"] },
+    imageUrl: unsplash("photo-1573532006015-013d2bf17ebd"),
   },
   {
     id: "night-trail",
@@ -48,7 +48,7 @@ export const products: Product[] = [
     blurb: "Trail runner with lugged sole for wet ground.",
     weightGrams: 310,
     rating: 4.7,
-    art: { shape: "peak", colors: ["#2e4443", "#9fb0ae"] },
+    imageUrl: unsplash("photo-1718248028293-934f04a578db"),
   },
   {
     id: "paper-high",
@@ -59,7 +59,7 @@ export const products: Product[] = [
     blurb: "Minimal high-top, canvas construction.",
     weightGrams: 340,
     rating: 4.1,
-    art: { shape: "ring", colors: ["#c9c4b6", "#1c2b2a"] },
+    imageUrl: unsplash("photo-1562105962-2fbaaf107fe3"),
   },
   {
     id: "shelter-parka",
@@ -70,7 +70,7 @@ export const products: Product[] = [
     blurb: "Insulated shell, packable hood.",
     weightGrams: 920,
     rating: 4.8,
-    art: { shape: "block", colors: ["#1c2b2a", "#c9c4b6"] },
+    imageUrl: unsplash("photo-1706765779494-2705542ebe74"),
   },
   {
     id: "quarter-vest",
@@ -81,7 +81,7 @@ export const products: Product[] = [
     blurb: "Lightweight layer for shoulder-season mornings.",
     weightGrams: 340,
     rating: 4.2,
-    art: { shape: "swoop", colors: ["#6f827f", "#4c5fef"] },
+    imageUrl: unsplash("photo-1556691421-cf15fe27a0b6"),
   },
   {
     id: "field-cap",
@@ -92,7 +92,7 @@ export const products: Product[] = [
     blurb: "Six-panel cap, brushed cotton.",
     weightGrams: 90,
     rating: 4.4,
-    art: { shape: "ring", colors: ["#2e4443", "#edeeea"] },
+    imageUrl: unsplash("photo-1521369909029-2afed882baee"),
   },
   {
     id: "day-crossbody",
@@ -103,6 +103,6 @@ export const products: Product[] = [
     blurb: "Compact bag, one adjustable strap.",
     weightGrams: 180,
     rating: 4.5,
-    art: { shape: "peak", colors: ["#c9c4b6", "#2e4443"] },
+    imageUrl: unsplash("photo-1605733513597-a8f8341084e6"),
   },
 ];

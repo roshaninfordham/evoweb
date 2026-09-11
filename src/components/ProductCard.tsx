@@ -1,5 +1,5 @@
+import Image from "next/image";
 import type { Product } from "@/data/products";
-import { ProductArt } from "./ProductArt";
 
 export function ProductCard({
   product,
@@ -16,7 +16,9 @@ export function ProductCard({
       onClick={onToggle}
       className="text-left border-b border-stone py-6 flex flex-col gap-3 group"
     >
-      <ProductArt art={product.art} className="w-full h-28" />
+      <div className="relative w-full h-28 border border-stone bg-paper-dim">
+        <Image src={product.imageUrl} alt={product.name} fill className="object-cover" sizes="220px" />
+      </div>
       <div className="flex items-baseline justify-between">
         <span className="font-display text-lg">{product.name}</span>
         <span className="text-sm text-text-dim">${product.price}</span>

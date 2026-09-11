@@ -1,5 +1,5 @@
+import Image from "next/image";
 import type { Product } from "@/data/products";
-import { ProductArt } from "./ProductArt";
 
 export function Hero({ product, onView }: { product: Product; onView: () => void }) {
   return (
@@ -21,10 +21,9 @@ export function Hero({ product, onView }: { product: Product; onView: () => void
           </button>
         </div>
       </div>
-      <ProductArt
-        art={product.art}
-        className="w-40 h-40 sm:w-56 sm:h-56 order-1 sm:order-2 justify-self-center"
-      />
+      <div className="relative w-40 h-40 sm:w-56 sm:h-56 border border-stone order-1 sm:order-2 justify-self-center">
+        <Image src={product.imageUrl} alt={product.name} fill className="object-cover" sizes="224px" priority />
+      </div>
     </section>
   );
 }
