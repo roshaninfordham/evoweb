@@ -108,6 +108,11 @@ export function EnginePanel({
                       ))}
                     </span>
                   )}
+                  {entry.code && (
+                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words border border-ink-dimmer bg-black/20 p-2 text-xs text-text-inverted-dim">
+                      {entry.code}
+                    </pre>
+                  )}
                 </span>
               </li>
             ))}

@@ -59,7 +59,7 @@ export function Storefront() {
     (
       label: string,
       state: LogEntry["state"],
-      extra?: { agent?: string; href?: string; sources?: SourceRef[] }
+      extra?: { agent?: string; href?: string; sources?: SourceRef[]; code?: string }
     ) => {
       setLog((prev) => [
         ...prev,
@@ -71,6 +71,7 @@ export function Storefront() {
           agent: extra?.agent,
           href: extra?.href,
           sources: extra?.sources,
+          code: extra?.code,
         },
       ]);
     },
@@ -116,7 +117,10 @@ export function Storefront() {
       });
       source.addEventListener("build_done", (e) => {
         const data = JSON.parse((e as MessageEvent).data);
-        appendLog("Component written", "done", { sources: crewChip(data.traceUrl) });
+        appendLog("Component written — code below", "done", {
+          sources: crewChip(data.traceUrl),
+          code: data.code,
+        });
       });
       source.addEventListener("verify_start", (e) => {
         const data = JSON.parse((e as MessageEvent).data);

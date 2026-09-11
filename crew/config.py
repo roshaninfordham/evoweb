@@ -13,6 +13,12 @@ DAYTONA_SANDBOX_ID = "a34bb369-f931-4523-abcf-d3decb01c418"
 DAYTONA_EXEC_ACTION_ID = "conn_mod_def::GNF5XuTz34A::sxtFNI_cQICzppPkTCzHLg"
 DAYTONA_CONNECTION_KEY = "live::daytona::default::2615bc602a3b4d37aa73a3a933817218"
 
+# Same rationale as Daytona above: the search action + connection key are already
+# known, so skip the agentic discovery loop (search_one_actions/knowledge) for
+# the mechanical "run a search" part and go straight to executing it.
+YOU_SEARCH_ACTION_ID = "conn_mod_def::GK9ryNdQKGE::TiwS_VVUSE-wxbKljY4T4g"
+YOU_CONNECTION_KEY = "live::you::default::0bd9efc8586d4f79a9d9f2063267079e"
+
 
 def require_env(name: str) -> str:
     value = os.environ.get(name)

@@ -8,6 +8,8 @@ from config import (
     DAYTONA_CONNECTION_KEY,
     DAYTONA_EXEC_ACTION_ID,
     DAYTONA_SANDBOX_ID,
+    YOU_CONNECTION_KEY,
+    YOU_SEARCH_ACTION_ID,
     builder_llm,
     planner_llm,
 )
@@ -49,36 +51,64 @@ ONE_WORKFLOW = (
 )
 
 
+def _you_search(query: str, count: int = 3) -> list[dict]:
+    """Direct, deterministic You.com search via One — same rationale as the
+    Daytona verifier: the action and connection key are already known, so skip
+    the agentic search_one_actions/knowledge discovery loop entirely."""
+    raw = execute_one_action.func(
+        platform="you",
+        action_id=YOU_SEARCH_ACTION_ID,
+        connection_key=YOU_CONNECTION_KEY,
+        data_json=json.dumps({"query": query, "count": count}),
+    )
+    try:
+        parsed = json.loads(raw)
+        web = parsed.get("response", {}).get("results", {}).get("web", [])
+        return [
+            {
+                "title": r.get("title", ""),
+                "description": r.get("description", ""),
+                "url": r.get("url", ""),
+                "thumbnailUrl": r.get("thumbnail_url"),
+            }
+            for r in web[:count]
+        ]
+    except (json.JSONDecodeError, AttributeError):
+        return []
+
+
 def run_plan(req: PlanRequest) -> PlanResponse:
     research_output = ""
 
     if req.needsResearch:
-        researcher = Agent(
-            role="Market Researcher",
-            goal="Find brief, real, current context that helps decide whether to build a new storefront capability.",
-            backstory=(
-                "You have access to One, which connects to 750+ platforms including You.com (platform "
-                f"slug: 'you'). {ONE_WORKFLOW}"
-            ),
-            tools=ONE_TOOLS,
-            llm=planner_llm(),
-            verbose=True,
-        )
-        research_task = Task(
-            description=(
-                f"A storefront slot called \"{req.label}\" may need to be built at {req.target}.\n"
-                f"Trigger condition: {req.triggerDescription}\n"
-                "Real visitor evidence:\n" + "\n".join(f"- {e}" for e in req.evidence) + "\n\n"
-                "Use You.com (platform 'you') through One to search the web for one or two brief, real, "
-                "relevant, current facts that would help decide whether and how to build this capability. "
-                "Keep it short."
-            ),
-            expected_output="Two or three plain sentences summarizing what you found, or 'No relevant results found.'",
-            agent=researcher,
-        )
-        crew = Crew(agents=[researcher], tasks=[research_task], process=Process.sequential, verbose=True)
-        clear_trace_url()
-        research_output = str(crew.kickoff())
+        query = f"{req.label} {req.evidence[0] if req.evidence else ''}"[:200]
+        results = _you_search(query)
+
+        if results:
+            findings = "\n".join(f"- {r['title']}: {r['description']} ({r['url']})" for r in results)
+            summarizer = Agent(
+                role="Market Researcher",
+                goal="Turn real search results into a brief, relevant summary for a product decision.",
+                backstory="You write short, honest summaries of real web search results — never invent facts.",
+                llm=planner_llm(),
+                verbose=True,
+            )
+            summarize_task = Task(
+                description=(
+                    f"A storefront slot called \"{req.label}\" may need to be built at {req.target}.\n"
+                    f"Trigger condition: {req.triggerDescription}\n\n"
+                    f"Real You.com search results for \"{query}\":\n{findings}\n\n"
+                    "Summarize whatever is genuinely relevant to this decision in two or three plain "
+                    "sentences. If none of it is relevant, say so plainly."
+                ),
+                expected_output="Two or three plain sentences.",
+                agent=summarizer,
+            )
+            crew = Crew(agents=[summarizer], tasks=[summarize_task], process=Process.sequential, verbose=True)
+            clear_trace_url()
+            research_output = str(crew.kickoff())
+        else:
+            research_output = "You.com search returned no results."
 
     planner = Agent(
         role="Product Planner",

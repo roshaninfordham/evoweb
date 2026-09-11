@@ -11,6 +11,7 @@ export type LogEntry = {
   agent?: string;
   href?: string;
   sources?: SourceRef[];
+  code?: string;
 };
 
 export type HistoryEntry = {
